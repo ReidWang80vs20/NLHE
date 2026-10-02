@@ -1,6 +1,6 @@
 /* ============================================================
- * bridge.js — 与心算题库（D:\todo\NLHE）的联动
- * bridge.js — Integration with the mental-math question bank (D:\todo\NLHE)
+ * bridge.js — 与心算题库（同目录的 index.html）的联动
+ * bridge.js — Integration with the mental-math question bank (index.html in the same directory)
  *
  * 两个应用是**各自独立的单文件页面**，不能互相 require。它们之间唯一的
  * The two apps are **independent single-file pages** that cannot require each
@@ -30,8 +30,8 @@
  *   跨页面读不到对方的代码，只能复制。为避免两边悄悄漂移，
  *   code cannot be read across pages, so copying is the only option. To keep the
  *   two sides from silently drifting apart,
- *   test/check-bridge.js 会直接解析 D:\todo\NLHE\index.html 里的 TOPICS 块，
- *   test/check-bridge.js parses the TOPICS block in D:\todo\NLHE\index.html
+ *   test/check-bridge.js 会直接解析 index.html 里的 TOPICS 块，
+ *   test/check-bridge.js parses the TOPICS block in index.html
  *   directly,
  *   逐键比对 —— 题目增删改名会让测试变红，而不是静默失配。
  *   comparing key by key — adding, removing, or renaming a topic turns the test
@@ -44,8 +44,40 @@
   /** 题库的存档键与页面地址 */
   /** The question bank's save key and page URL */
   const DRILL_KEY = 'nlhe_trainer_v1';
-  const DRILL_PATH = 'D:/todo/NLHE/index.html';
-  const DRILL_URL = 'file:///' + DRILL_PATH;
+
+  /** 题库页面文件名（与模拟器同目录） */
+  /** The drill page's file name (same directory as the simulator) */
+  const DRILL_FILE = 'index.html';
+
+  /* 题库页面地址：按当前页面地址推导，而不是写死作者机器上的绝对路径。
+     Drill page URL: derived from the current page URL instead of hard-coding an absolute path from the
+     author's machine.
+     两个页面（poker-trainer.html / index.html）永远同目录，所以把当前 URL 的最后一段换掉即可，
+     别人 clone 到任何目录都能正确跳转；在 http(s) 下同样成立。
+     The two pages (poker-trainer.html / index.html) always sit in the same directory, so replacing the
+     last segment of the current URL is enough — correct after cloning anywhere, and under http(s) too.
+     取不到 location（例如 Node 里 require 本文件跑测试）时回落到裸文件名。
+     When location is unavailable (e.g. requiring this file under Node for tests) it falls back to the bare file name. */
+  function deriveDrillPath() {
+    try {
+      const href = global.location && global.location.href;
+      if (!href) return DRILL_FILE;
+      const base = href.split(/[?#]/)[0].replace(/[^/]*$/, DRILL_FILE);
+      /* file:// 下只保留盘符路径（D:/...），便于断言与展示；http(s) 下原样返回完整地址
+         Under file:// keep only the drive path (D:/...) for easier assertions and display; under http(s)
+         return the full URL unchanged */
+      const m = /^file:\/\/\/(.*)$/i.exec(base);
+      if (m) return decodeURIComponent(m[1]);
+      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(base)) return base;
+      return DRILL_FILE;
+    } catch (e) {
+      return DRILL_FILE;
+    }
+  }
+  const DRILL_PATH = deriveDrillPath();
+  /* 已经是完整 URL（http(s)）就直接用，否则补成 file:// 地址
+     If it is already a full URL (http(s)) use it as is, otherwise prepend the file:// scheme */
+  const DRILL_URL = /^[a-z][a-z0-9+.-]*:\/\//i.test(DRILL_PATH) ? DRILL_PATH : 'file:///' + DRILL_PATH;
 
   /** 与题库侧 UNLOCK_ATT / UNLOCK_ACC 保持一致 */
   /** Kept in sync with the question bank's UNLOCK_ATT / UNLOCK_ACC */

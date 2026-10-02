@@ -20,13 +20,9 @@ const { chromium } = require('playwright-core');
 const TARGET_HTML = process.argv[2] || 'poker-trainer.html';
 const FILE = 'file:///' + path.join(__dirname, '..', TARGET_HTML).replace(/\\/g, '/');
 
-const CHROME_CANDIDATES = [
-  'C:/Users/80vs2/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe',
-  'C:/Users/80vs2/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe',
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-];
-const CHROME = CHROME_CANDIDATES.find(p => fs.existsSync(p));
+/* 浏览器自动探测：NLHE_CHROME → playwright 自报 → 缓存扫描 → 标准安装 → PATH
+   Browser auto-detection: NLHE_CHROME → playwright-reported → cache scan → standard install → PATH */
+const CHROME = require('../tools/find-browser.cjs').findBrowserExe();
 
 const HANDS = 8;
 let pass = 0, fail = 0;

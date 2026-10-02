@@ -3,35 +3,29 @@
  * Browser detection —— shared by icon rendering, shortcut creation, and desktop screenshots.
  * 优先级：Chrome > Edge。返回可执行文件绝对路径。
  * Priority: Chrome > Edge. Returns the absolute path of the executable.
+ *
+ * 真正的探测逻辑在 ../tools/find-browser.cjs（与 test/ 共用同一份，避免两处漂移）；
+ * The actual detection logic lives in ../tools/find-browser.cjs (shared with test/, so the two cannot drift):
+ * 那里按 NLHE_CHROME → playwright 自报 → playwright 缓存 → 标准安装位置 → PATH 的顺序找，
+ * it searches NLHE_CHROME → path reported by playwright → playwright cache → standard install → PATH,
+ * 不写死任何用户名与版本号。
+ * without hard-coding any user name or version number.
  */
-import fs from "node:fs";
-import path from "node:path";
+import shared from "../tools/find-browser.cjs";
 
-const CANDIDATES = [
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-  path.join(process.env.LOCALAPPDATA || "", "Google", "Chrome", "Application", "chrome.exe"),
-  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-];
+const { findBrowser: detectBrowser } = shared;
 
 /** @returns {{exe:string, kind:'chrome'|'edge'}|null} */
 export function findBrowser() {
-  for (const exe of CANDIDATES) {
-    if (!exe) continue;
-    try {
-      if (fs.existsSync(exe)) {
-        return { exe, kind: /msedge/i.test(exe) ? "edge" : "chrome" };
-      }
-    } catch { /* 忽略无权限的候选路径 / Ignore candidate paths without access permission */ }
-  }
-  return null;
+  return detectBrowser();
 }
 
 export function requireBrowser() {
   const b = findBrowser();
   if (!b) {
     console.error("未找到 Chrome 或 Edge，无法继续。");
+    console.error("可设置 NLHE_CHROME 环境变量显式指定，例如：");
+    console.error('  set NLHE_CHROME=C:\\path\\to\\chrome.exe');
     process.exit(1);
   }
   return b;

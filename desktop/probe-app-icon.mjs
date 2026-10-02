@@ -29,12 +29,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireBrowser } from "./browser.mjs";
 import { runCapture, spawnDetached, killTree } from "./proc.mjs";
+import pyFinder from "../tools/find-python.cjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, "..");
 const PAGE = path.join(ROOT, "poker-trainer.html");
 const PROBE = path.join(here, "probe-window-icon.py");
-const PY = "C:\\Users\\80vs2\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python.exe";
+
+/* Python 解释器自动探测：NLHE_PYTHON → PATH → 用户级/系统级安装 → 本工具链托管解释器
+   Python interpreter auto-detection: NLHE_PYTHON → PATH → per-user/machine-wide installs → managed interpreter
+   原先这里写死了作者机器上的一条绝对路径，换机器必然失败。
+   This used to hard-code one absolute path from the author's machine, which necessarily breaks elsewhere. */
+const PY = pyFinder.findPythonExe();
+if (!PY) {
+  console.error("未找到 Python 解释器，请安装 Python 或设置 NLHE_PYTHON 环境变量。");
+  process.exit(1);
+}
+
 const TITLE = "德州扑克练习室";
 
 const args = process.argv.slice(2);

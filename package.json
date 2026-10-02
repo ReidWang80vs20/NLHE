@@ -3,14 +3,17 @@
   "version": "1.0.0",
   "description": "德州扑克练习室 · NLHE Trainer — 单机无限注德州扑克实战练习与复盘（Electron 桌面版）",
   "main": "electron/main.js",
-  "author": "NLHE Trainer",
+  "author": "ReidWang80vs20",
   "license": "MIT",
   "private": true,
   "scripts": {
     "start": "electron .",
     "smoke": "electron . --smoke",
-    "dist": "electron-builder --win portable",
-    "dist:dir": "electron-builder --win dir"
+    "build": "node build.js",
+    "fresh": "node tools/check-bundle-fresh.cjs",
+    "verify": "node tools/check-bundle-fresh.cjs",
+    "dist": "npm run build && npm run fresh && electron-builder --win portable",
+    "dist:dir": "npm run build && electron-builder --win dir"
   },
   "devDependencies": {
     "electron": "^33.0.0",

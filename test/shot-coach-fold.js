@@ -11,12 +11,9 @@ const { chromium } = require('playwright-core');
 const FILE = 'file:///' + path.join(__dirname, '..', 'poker-trainer.html').replace(/\\/g, '/');
 const SHOT = path.join(__dirname, 'shots');
 fs.mkdirSync(SHOT, { recursive: true });
-const CHROME = [
-  'C:/Users/80vs2/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe',
-  'C:/Users/80vs2/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe',
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-].find(p => fs.existsSync(p));
+/* 浏览器自动探测：NLHE_CHROME → playwright 自报 → 缓存扫描 → 标准安装 → PATH
+   Browser auto-detection: NLHE_CHROME → playwright-reported → cache scan → standard install → PATH */
+const CHROME = require('../tools/find-browser.cjs').findBrowserExe();
 
 (async function () {
   const browser = await chromium.launch({ executablePath: CHROME });

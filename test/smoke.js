@@ -25,13 +25,9 @@ fs.mkdirSync(SHOT_DIR, { recursive: true });
 
 /* 本机只装了这个版本的 chromium，直接指定可执行文件，避免版本探测失败 */
 /* Only this version of chromium is installed locally, so point directly at the executable to avoid version-probing failures */
-const CHROME_CANDIDATES = [
-  'C:/Users/80vs2/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe',
-  'C:/Users/80vs2/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe',
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-];
-const CHROME = CHROME_CANDIDATES.find(p => fs.existsSync(p));
+/* 浏览器自动探测：NLHE_CHROME → playwright 自报 → 缓存扫描 → 标准安装 → PATH
+   Browser auto-detection: NLHE_CHROME → playwright-reported → cache scan → standard install → PATH */
+const CHROME = require('../tools/find-browser.cjs').findBrowserExe();
 
 const HANDS = 25;
 

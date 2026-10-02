@@ -30,31 +30,44 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
 
-let html = read('index.html');
-const css = read('src/style.css');
+const OUT = path.join(ROOT, 'poker-trainer.html');
 
-/* 1. 内联样式 / 1. Inline styles */
-html = html.replace(/<link rel="stylesheet" href="src\/style\.css">/,
-  '<style>\n' + css + '\n</style>');
+/* 产出单文件 HTML 的内容（**不落盘**）。
+   Produce the single-file HTML content (**without writing to disk**).
+   check-bundle-fresh 用它跟磁盘上的产物逐字节比对，判断"改了源码后有没有忘记重新打包"。
+   check-bundle-fresh compares its output byte-for-byte with the artifact on disk to detect
+   "source changed but nobody re-ran the build". */
+function buildBundle() {
+  let html = read('index.html');
+  const css = read('src/style.css');
 
-/* 2. 内联脚本（严格按依赖顺序） / 2. Inline scripts (strictly in dependency order) */
-const scripts = JS_ORDER.map(function (f) {
-  return '<script>\n/* ===== ' + f + ' ===== */\n' + read(path.join('src', f)) + '\n</script>';
-}).join('\n');
-html = html.replace(/(?:<script src="src\/[a-z]+\.js"><\/script>\s*)+/, scripts + '\n');
+  /* 1. 内联样式 / 1. Inline styles */
+  html = html.replace(/<link rel="stylesheet" href="src\/style\.css">/,
+    '<style>\n' + css + '\n</style>');
 
-/* 3. 校验：不应再残留外部引用 / 3. Validate: no external references should remain */
-const leftovers = html.match(/src="src\/|href="src\//g);
-if (leftovers) {
-  console.error('❌ 仍有未内联的外部引用：' + leftovers.join(', '));
-  process.exit(1);
+  /* 2. 内联脚本（严格按依赖顺序） / 2. Inline scripts (strictly in dependency order) */
+  const scripts = JS_ORDER.map(function (f) {
+    return '<script>\n/* ===== ' + f + ' ===== */\n' + read(path.join('src', f)) + '\n</script>';
+  }).join('\n');
+  html = html.replace(/(?:<script src="src\/[a-z]+\.js"><\/script>\s*)+/, scripts + '\n');
+
+  /* 3. 校验：不应再残留外部引用 / 3. Validate: no external references should remain */
+  const leftovers = html.match(/src="src\/|href="src\//g);
+  if (leftovers) {
+    throw new Error('仍有未内联的外部引用 / external references left: ' + leftovers.join(', '));
+  }
+  if (html.indexOf('<style>') < 0 || html.indexOf('/* ===== main.js ===== */') < 0) {
+    throw new Error('内联失败：未找到 style 或 main.js 标记 / inlining failed: style or main.js marker missing');
+  }
+  return html;
 }
-if (html.indexOf('<style>') < 0 || html.indexOf('/* ===== main.js ===== */') < 0) {
-  console.error('❌ 内联失败：未找到 style 或 main.js 标记');
-  process.exit(1);
-}
 
-const out = path.join(ROOT, 'poker-trainer.html');
-fs.writeFileSync(out, html, 'utf8');
-const kb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(1);
-console.log('✅ 已生成 ' + out + '（' + kb + ' KB，单文件、零依赖、可离线运行）');
+module.exports = { buildBundle, OUT, JS_ORDER };
+
+/* 直接执行时才落盘 / Only write to disk when executed directly */
+if (require.main === module) {
+  const html = buildBundle();
+  fs.writeFileSync(OUT, html, 'utf8');
+  const kb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(1);
+  console.log('✅ 已生成 ' + OUT + '（' + kb + ' KB，单文件、零依赖、可离线运行）');
+}

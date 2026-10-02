@@ -275,8 +275,14 @@ NLHE/
 │  └─ main.js             Electron 主进程：单实例、窗口几何持久化、安全默认值、冒烟自检
 │                         Electron main process: single instance, window-geometry persistence, secure defaults, smoke self-check
 ├─ tools/
-│  └─ check-code-unchanged.mjs   用 acorn 比对 token 流，证明"只改注释没动代码"
-│                                compares acorn token streams to prove "comments only — no code change"
+│  ├─ check-code-unchanged.mjs   用 acorn 比对 token 流，证明"只改注释没动代码"
+│  │                             compares acorn token streams to prove "comments only — no code change"
+│  ├─ check-bundle-fresh.cjs     重算打包结果与产物逐字节比对，防"改了 src/ 忘了 build"
+│  │                             recomputes the bundle and diffs it byte-for-byte against the artifact, catching "edited src/ but forgot to build"
+│  ├─ find-browser.cjs           浏览器自动探测：NLHE_CHROME → playwright 自报 → 缓存扫描 → 标准安装 → PATH
+│  │                             browser auto-detection: NLHE_CHROME → playwright-reported → cache scan → standard install → PATH
+│  └─ find-python.cjs            Python 解释器自动探测（环境变量 → 缓存 → PATH）
+│                                Python interpreter auto-detection (env var → cache → PATH)
 ├─ src/
 │  ├─ poker.js            牌型评估器（位运算 + 复用缓冲区）、起手牌排名表 / hand evaluator (bitwise + reused buffers), starting-hand ranking table
 │  ├─ equity.js           蒙特卡洛胜率（含对手范围约束） / Monte-Carlo equity (with opponent-range constraints)
@@ -337,7 +343,7 @@ node test/check-range.js         # 169 类范围模型（59 项） / 169-class r
 node test/check-profile.js       # 漏洞画像与剥削权重（50 项） / leak profile & exploitation weights (50)
 node test/check-wiring.js        # B 组端到端接线（50 项） / group-B end-to-end wiring (50)
 node test/check-ev.js            # EV 损失复盘（105 项） / EV-loss review (105)
-node test/check-bridge.js        # 题库联动 + 防漂移比对（145 项） / drill linking + anti-drift comparison (145)
+node test/check-bridge.js        # 题库联动（133 项 + 防漂移组：识别到题库文件时逐键比对，识别不到则跳过并报明） / drill linking (133, plus an anti-drift group that compares key-by-key when the drill file is found, and says so when skipped)
 node test/check-scenarios.js     # 题库自洽性 / drill-bank self-consistency
 node test/symmetry.js 1500       # 1500 手行为统计 / behavioural stats over 1500 hands
 node test/diag-style.js 1500     # 各人格 VPIP/PFR/WTSD（软报告，退出码恒为 0；无种子，建议跑两遍）
@@ -346,7 +352,7 @@ node test/diag-style.js 1500     # 各人格 VPIP/PFR/WTSD（软报告，退出�
 # 浏览器层（需要 NODE_PATH 指向 playwright-core） / browser layer (NODE_PATH must point at playwright-core)
 export NODE_PATH=<playwright路径>   # <path to playwright>
 node test/smoke.js               # 冒烟：无报错、能打完、无溢出 / smoke: no errors, plays through, no overflow
-node test/features.js            # 复盘/持久化/训练全链路（37 项） / replay/persistence/drills end-to-end (37)
+node test/features.js            # 复盘/持久化/训练全链路（38 项） / replay/persistence/drills end-to-end (38)
 node test/check-analysis.js      # C/D 组界面验收（70 项） / group-C/D UI verification (70)
 node test/measure-layout.js index.html    # 布局体检（8 种分辨率） / layout check (8 resolutions)
 node test/check-positions.js index.html   # 位置标签 / position labels
@@ -360,9 +366,42 @@ node desktop/test-wingeom.mjs    # 窗口几何判据单元测试（20 项，用
 node desktop/test-shortcut-args.mjs  # 验证新参数能否写入 .lnk（写项目内临时目录） / verifies new args can be written into a .lnk (writes to a temp dir inside the project)
 
 # Electron 桌面版（先 npm install） / Electron desktop build (run npm install first)
+npm run build                    # 重新打包单文件产物 / rebuild the single-file artifact
+npm run fresh                    # 校验产物没有过期（见下） / verify the artifact is not stale (see below)
 node tools/check-code-unchanged.mjs .workbuddy/baseline   # 注释改造的零改动校验（acorn 比对 token 流） / zero-change check for the comment pass (acorn token-stream comparison)
 npm run smoke                    # 冒烟自检（5 项检查，退出码即结论） / smoke self-check (5 checks, exit code is the verdict)
 npm run dist                     # 打包免安装便携 exe（产物在 dist/） / package the install-free portable exe (output in dist/)
+```
+
+### 改了 `src/` 要不要重新打包？ / Do I need to rebuild after editing `src/`?
+
+要。Electron 成品里只有 4 个文件，游戏逻辑全部来自 `poker-trainer.html`（`src/*` 经 `build.js` 内联进去）。<br>
+Yes. The Electron artifact contains only four files, and all game logic comes from `poker-trainer.html` (`src/*` inlined by `build.js`).
+
+| 改动位置 / Where you edited | 是否进入成品 / Reaches the artifact | 是否需 `npm run build` / Needs `npm run build` |
+| --- | --- | --- |
+| `src/**`、`src/style.css`、`index.html`、`build.js` | 是 / yes | **必须 / required** |
+| `electron/main.js`、`assets/`、`package.json` | 是 / yes | 需 `npm run dist` 重打 exe / re-run `npm run dist` |
+| `test/`、`desktop/`、`tools/` | 否 / no | 不需要 / not needed |
+
+`npm run dist` 已串好 `build → fresh → electron-builder`，不会漏；单独跑 `npm run fresh` 可以在提交前自查。<br>
+`npm run dist` chains `build → fresh → electron-builder` so nothing is skipped; run `npm run fresh` on its own as a pre-commit self-check.
+
+`fresh` 的判据**不是时间戳**（`git checkout`、复制、解包都会让 mtime 失真），而是**重新算一遍打包结果、跟磁盘产物逐字节比对**，并逐模块报出脱节位置。<br>
+`fresh` does **not** compare timestamps (git checkout, copying, and unpacking all distort mtime); it **recomputes the bundle and compares it byte-for-byte with the artifact on disk**, then reports which module drifted.
+
+```
+$ node tools/check-bundle-fresh.cjs
+✅ 产物是最新的 / artifact is up to date
+   D:\repo\poker-trainer.html
+   426.7 KB，15 个模块已内联 / modules inlined
+
+$ node tools/check-bundle-fresh.cjs .workbuddy/freshness/stale1.html   # 坏样本：改了 engine.js 没重打包 / bad sample: engine.js changed without rebuild
+❌ 产物已过期 / artifact is stale
+     ✓ engine.js 之外的 15 项  一致 / identical
+     ✗ engine.js               不一致 / differs (源码第 ~145 行 / src line ~145)
+判别力已实测：仅删掉产物里 engine.js 的一处标识符（8 字符），检查即报 exit 1 并准确定位到 engine.js，其余 15 项仍判"一致"。
+Discriminating power measured: deleting a single identifier (8 chars) from engine.js in the artifact makes the check exit 1 and pinpoint engine.js, while the other 15 still report "identical".
 ```
 
 > `test/*.js` 里凡是 require('playwright-core') 的，都要先把 `NODE_PATH` 指到装了它的目录；<br>
@@ -372,6 +411,20 @@ npm run dist                     # 打包免安装便携 exe（产物在 dist/�
 
 改完 `src/` 下的代码后**必须重新执行 `node build.js`**，否则桌面入口打开的仍是旧版本。<br>
 After changing code under `src/` you **must re-run `node build.js`**, otherwise the desktop entry still opens the old version.
+
+### 环境变量 / Environment variables
+
+所有外部资源的位置都按「环境变量 → 自动探测」解析，不写死任何机器路径；<br>
+Every external resource is resolved as "environment variable → auto-detection", with no machine-specific path hard-coded:
+
+| 变量 / Variable | 作用 / Purpose | 缺省行为 / Default when unset |
+| --- | --- | --- |
+| `NLHE_CHROME` | 指定浏览器 exe / browser executable | 依次尝试：playwright 自报 → `ms-playwright` 缓存扫描 → Chrome/Edge 标准安装目录 → `PATH`<br>tries, in order: playwright-reported → `ms-playwright` cache scan → standard Chrome/Edge install dirs → `PATH` |
+| `CHROME_PATH` / `PUPPETEER_EXECUTABLE_PATH` | 同上的兼容别名 / compatibility aliases for the above | 同上 / as above |
+| `NLHE_PYTHON` | 指定 Python 解释器（desktop 的 .py 探针用） / Python interpreter (for the .py probes under desktop/) | 环境变量 → 缓存扫描 → `PATH` / env var → cache scan → `PATH` |
+| `NLHE_DRILL_HTML` | 题库页面位置（check-bridge 的防漂移比对用） / drill page location (for check-bridge anti-drift) | 在本仓库内按内容识别（找含 `TOPICS` 的 HTML）；识别不到就跳过该组并报明<br>content-based discovery inside the repo (looks for an HTML containing `TOPICS`); the group is skipped with a notice if not found |
+| `NLHE_PEER_ROOT` | probe-origin 的"对照副本"目录 / the "peer copy" directory for probe-origin | `../../temp/AI/NLHE`（相对仓库推导 / derived relative to the repo） |
+| `NLHE_EXTRA_FLAGS` | 给 probe-fullscreen 追加 Chromium 启动参数 / extra Chromium flags for probe-fullscreen | 空 / empty |
 
 ---
 

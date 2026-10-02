@@ -54,8 +54,8 @@
 
   /* 漏洞 → 心算题库主题的映射（D 组联动用）。
      Leak → mental-math drill topic mapping (used for group D linkage).
-     主题 key 与 D:\todo\NLHE 的 TOPICS 保持一致。
-     The topic keys stay consistent with TOPICS in D:\todo\NLHE. */
+     主题 key 与题库 index.html 的 TOPICS 保持一致。
+     The topic keys stay consistent with TOPICS in the drill app's index.html. */
   const TOPIC_FOR = {
     foldTooMuch: ['s3_req', 's3_decide'],
     callTooMuch: ['s3_decide', 's5_callev'],

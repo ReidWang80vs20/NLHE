@@ -1,6 +1,6 @@
 /* ============================================================
- * check-bridge.js — 与心算题库（D:\todo\NLHE）联动的自检
- * check-bridge.js — self-check of integration with the mental-math drill app (D:\todo\NLHE)
+ * check-bridge.js — 与心算题库（同目录的 index.html）联动的自检
+ * check-bridge.js — self-check of integration with the mental-math drill app (index.html in the same directory)
  *
  *   node test/check-bridge.js
  *
@@ -11,8 +11,8 @@
  *   A. **Anti-drift**: the TOPICS table in bridge.js is a **deliberate copy** of the drill app source
  *      （两个页面互相读不到代码，只能复制）。测试直接解析
  *      (the two pages cannot read each other's code, so copying is the only option). The test directly parses
- *      D:\todo\NLHE\index.html，逐键比对 stage / name / formula / 存档键 /
- *      D:\todo\NLHE\index.html and compares stage / name / formula / save key /
+ *      index.html（本仓库根目录），逐键比对 stage / name / formula / 存档键 /
+ *      index.html (in this repository's root) and compares stage / name / formula / save key /
  *      解锁阈值，以及今日键的**日期格式**。题库那边一改，这里就变红，
  *      unlock thresholds key by key, plus the **date format** of today's key. Change the drill app and this goes red,
  *      而不是静默失配。
@@ -35,11 +35,75 @@ const path = require('path');
 const fs = require('fs');
 
 const SRC = path.join(__dirname, '..', 'src');
+
+/* bridge.js 在**加载时**就按 global.location 推导题库地址，所以必须在 require 之前把浏览器环境模拟出来，
+   bridge.js derives the drill URL from global.location **at load time**, so the browser environment must be
+   simulated before requiring it;
+   否则它只会拿到裸文件名 index.html，这条"打开的正是题库页面"的断言就失去判别力。
+   otherwise it only sees the bare name index.html and the "the drill page is what gets opened" assertion
+   loses its discriminating power. */
+try {
+  Object.defineProperty(globalThis, 'location', {
+    value: { href: 'file:///' + path.join(__dirname, '..', 'poker-trainer.html').replace(/\\/g, '/') },
+    configurable: true,
+    writable: true,
+  });
+} catch (e) {
+  /* 某些运行时里 location 不可覆盖：此时退化为相对文件名，其余断言照常
+      In some runtimes location cannot be overridden; fall back to the relative file name, other assertions still run */
+}
+
+/* openDrill 应当打开的地址：由本脚本**独立**算出（模拟器页面同目录的 index.html），
+   The address openDrill should open: computed **independently** by this script (index.html next to the
+   simulator page),
+   而不是拿 B.DRILL_PATH 去比 —— 那等于用被测对象担保被测对象。
+   rather than comparing against B.DRILL_PATH, which would let the object under test vouch for itself.
+   与 DRILL_HTML（用于防漂移比对的题库**源文件**，可能不存在）是两回事，别混用。
+   This is a different thing from DRILL_HTML (the drill page **source file** used for the anti-drift
+   comparison, which may not exist) — do not conflate the two. */
+const EXPECTED_DRILL_PATH = path.join(__dirname, '..', 'index.html').replace(/\\/g, '/');
+
+/* 心算题库页面**不在本仓库内**：本仓库只有模拟器（index.html 是它的开发入口，会被 build.js
+   打包成 poker-trainer.html），所以不能再把路径写死成 DOM 结构里的某个文件。
+   The mental-math drill page is **not part of this repository**: this repo holds only the simulator
+   (index.html is its development entry, bundled into poker-trainer.html by build.js), so the path can no
+   longer be hard-coded to some file in that layout.
+   定位顺序 / Location order:
+     1. 环境变量 NLHE_DRILL_HTML（显式指定，最可靠）；
+     1. the NLHE_DRILL_HTML environment variable (explicit, most reliable);
+     2. 否则在本仓库根目录里按**内容**找一份题库；
+     2. otherwise search this repository's root for a drill page **by content**;
+     3. 都找不到 → 跳过 A 组比对，并打印明确指引。
+     3. if neither is found, skip the group-A comparison with a clear notice.
+   判别条件是"含 const STAGE_TOPICS + const UNLOCK_ATT，且**不含** PK.Bridge"：
+   The predicate is "contains const STAGE_TOPICS + const UNLOCK_ATT and does **not** contain PK.Bridge":
+   最后一条用于排除打包产物 poker-trainer.html —— 它内嵌了 bridge.js 的 TOPICS 副本，
+   the last condition rules out the bundled poker-trainer.html, which embeds bridge.js's TOPICS copy;
+   拿它比对就成了"自己跟自己比"，会静默通过，比找错文件更危险。
+   comparing against it would be comparing the code to itself, which passes silently — more dangerous than
+   simply pointing at the wrong file. */
+function locateDrillHtml() {
+  if (process.env.NLHE_DRILL_HTML) return process.env.NLHE_DRILL_HTML;
+  const root = path.join(__dirname, '..');
+  let names;
+  try { names = fs.readdirSync(root); } catch { return null; }
+  for (const n of names) {
+    if (!/\.html?$/i.test(n)) continue;
+    let text;
+    try { text = fs.readFileSync(path.join(root, n), 'utf8'); } catch { continue; }
+    if (/const\s+STAGE_TOPICS\s*=/.test(text) &&
+        /const\s+UNLOCK_ATT/.test(text) &&
+        text.indexOf('PK.Bridge') < 0) {
+      return path.join(root, n).replace(/\\/g, '/');
+    }
+  }
+  return null;
+}
+const DRILL_HTML = locateDrillHtml();
+
 ['poker.js', 'equity.js', 'range.js', 'profile.js', 'bridge.js'].forEach(f => require(path.join(SRC, f)));
 const PK = globalThis.PK;
 const B = PK.Bridge;
-
-const DRILL_HTML = 'D:/todo/NLHE/index.html';
 
 /* ---------- 断言骨架 ----------
  * ---------- Assertion skeleton ---------- */
@@ -105,7 +169,7 @@ function save(over) {
  * A. 防漂移
  * A. Anti-drift
  * ============================================================ */
-const exists = fs.existsSync(DRILL_HTML);
+const exists = !!DRILL_HTML && fs.existsSync(DRILL_HTML);
 const src = exists ? fs.readFileSync(DRILL_HTML, 'utf8') : '';
 
 /** 从题库源码里抠出常量
@@ -145,7 +209,9 @@ const DRILL = exists ? parseDrill() : null;
 
 group('A1. 能读到题库源码');
 if (!exists) {
-  console.log('   ⚠ 未找到 ' + DRILL_HTML + '，跳过防漂移比对（其余部分照常运行）');
+  console.log('   ⚠ 未找到心算题库文件，跳过 A 组的"与题库比对"部分（A2/A3 中不依赖题库的断言仍会执行）');
+  console.log('     题库不在本仓库内，可用环境变量指定它的位置，例如：');
+  console.log('       set NLHE_DRILL_HTML=D:\\path\\to\\drill\\index.html');
   skip++;
 } else {
   ok(true, '题库文件存在', DRILL_HTML);
@@ -154,57 +220,83 @@ if (!exists) {
 }
 
 group('A2. 复制过来的 TOPICS 必须与题库逐字一致');
-if (exists) {
+{
+  /* 先做**不依赖题库**的自洽性检查：题库不在本机时这几条仍然有效，
+     First the self-consistency checks that do **not** depend on the drill page — they still hold when the
+     drill page is absent,
+     所以"跳过题库比对"不等于"放弃全部判别力"。
+     so "skipping the drill comparison" does not mean "losing all discriminating power". */
   const mine = Object.keys(B.TOPICS).sort();
-  const theirs = Object.keys(DRILL.topics).sort();
   ok(mine.length === 21, 'bridge 侧 21 个知识点', String(mine.length));
-  ok(JSON.stringify(mine) === JSON.stringify(theirs), '键集合完全一致',
-    'bridge ' + mine.length + ' / 题库 ' + theirs.length);
 
-  const missing = mine.filter(k => !DRILL.topics[k]);
-  const extra = theirs.filter(k => !B.TOPICS[k]);
-  ok(missing.length === 0, '没有题库侧不存在的键', missing.join(','));
-  ok(extra.length === 0, '没有漏掉题库侧的键', extra.join(','));
-
-  let stageBad = [], nameBad = [], formulaBad = [];
-  for (const k of mine) {
-    const t = DRILL.topics[k];
-    if (!t) continue;
-    if (B.TOPICS[k].stage !== t.stage) stageBad.push(k);
-    if (B.TOPICS[k].name !== t.name) nameBad.push(k);
-    if (B.TOPICS[k].formula !== t.formula) formulaBad.push(k);
-  }
-  ok(stageBad.length === 0, '每个知识点的阶段号一致', stageBad.join(','));
-  ok(nameBad.length === 0, '每个知识点的名称一致', nameBad.join(','));
-  ok(formulaBad.length === 0, '每个知识点的公式文案一致', formulaBad.join(','));
-
-  /* 阶段分组：TOPICS[i].stage 应与 STAGE_TOPICS 的下标吻合
-   * Stage grouping: TOPICS[i].stage should agree with the STAGE_TOPICS index */
-  let groupBad = [];
-  for (const s of Object.keys(DRILL.stageTopics)) {
-    for (const k of DRILL.stageTopics[s]) {
-      if (!B.TOPICS[k] || B.TOPICS[k].stage !== +s) groupBad.push(k + '→阶段' + s);
-    }
-  }
-  ok(groupBad.length === 0, '阶段分组与 TOPICS 标注自洽', groupBad.join(','));
-  ok(Object.keys(DRILL.stageTopics).length === 5, '题库分为 5 个阶段');
+  /* 每条都必须带非空的 stage/name/formula，且 stage 在 1~5 之间
+     Every entry must carry a non-empty stage/name/formula, with stage between 1 and 5 */
+  const malformed = mine.filter(k => {
+    const t = B.TOPICS[k];
+    return !t || typeof t.stage !== 'number' || t.stage < 1 || t.stage > 5 || !t.name || !t.formula;
+  });
+  ok(malformed.length === 0, '每条知识点都有合法的 stage/name/formula', malformed.join(','));
 
   const stageDist = {};
   for (const k of mine) stageDist[B.TOPICS[k].stage] = (stageDist[B.TOPICS[k].stage] || 0) + 1;
   ok(JSON.stringify(stageDist) === J({ 1: 4, 2: 3, 3: 5, 4: 4, 5: 5 }),
     '各阶段题目数 4/3/5/4/5', J(stageDist));
+
+  if (exists) {
+    const theirs = Object.keys(DRILL.topics).sort();
+    ok(JSON.stringify(mine) === JSON.stringify(theirs), '键集合完全一致',
+      'bridge ' + mine.length + ' / 题库 ' + theirs.length);
+
+    const missing = mine.filter(k => !DRILL.topics[k]);
+    const extra = theirs.filter(k => !B.TOPICS[k]);
+    ok(missing.length === 0, '没有题库侧不存在的键', missing.join(','));
+    ok(extra.length === 0, '没有漏掉题库侧的键', extra.join(','));
+
+    let stageBad = [], nameBad = [], formulaBad = [];
+    for (const k of mine) {
+      const t = DRILL.topics[k];
+      if (!t) continue;
+      if (B.TOPICS[k].stage !== t.stage) stageBad.push(k);
+      if (B.TOPICS[k].name !== t.name) nameBad.push(k);
+      if (B.TOPICS[k].formula !== t.formula) formulaBad.push(k);
+    }
+    ok(stageBad.length === 0, '每个知识点的阶段号一致', stageBad.join(','));
+    ok(nameBad.length === 0, '每个知识点的名称一致', nameBad.join(','));
+    ok(formulaBad.length === 0, '每个知识点的公式文案一致', formulaBad.join(','));
+
+    /* 阶段分组：TOPICS[i].stage 应与 STAGE_TOPICS 的下标吻合
+     * Stage grouping: TOPICS[i].stage should agree with the STAGE_TOPICS index */
+    let groupBad = [];
+    for (const s of Object.keys(DRILL.stageTopics)) {
+      for (const k of DRILL.stageTopics[s]) {
+        if (!B.TOPICS[k] || B.TOPICS[k].stage !== +s) groupBad.push(k + '→阶段' + s);
+      }
+    }
+    ok(groupBad.length === 0, '阶段分组与 TOPICS 标注自洽', groupBad.join(','));
+    ok(Object.keys(DRILL.stageTopics).length === 5, '题库分为 5 个阶段');
+  }
 }
 
 group('A3. 存档键与解锁阈值必须一致');
-if (exists) {
-  ok(B.DRILL_KEY === DRILL.lsKey, '存档键与题库 LS_KEY 相同',
-    B.DRILL_KEY + ' vs ' + DRILL.lsKey);
-  ok(B.UNLOCK_ATT === DRILL.unlockAtt, '解锁所需题数一致',
-    B.UNLOCK_ATT + ' vs ' + DRILL.unlockAtt);
-  ok(B.UNLOCK_ACC === DRILL.unlockAcc, '解锁所需正确率一致',
-    B.UNLOCK_ACC + ' vs ' + DRILL.unlockAcc);
+{
+  /* 不依赖题库的两条：跳转地址的拼法，以及"漏洞→题目"映射存在。
+     Two assertions that do not depend on the drill page: how the jump URL is assembled, and that the
+     leak→topic mapping exists.
+     注意 DRILL_URL 现在由当前页面地址推导，所以这里验的是"两者一致"，
+     Note DRILL_URL is now derived from the current page URL, so this checks that the two agree
+     而不是某个写死的绝对路径。
+     rather than checking some hard-coded absolute path. */
   ok(B.DRILL_URL === 'file:///' + B.DRILL_PATH, '跳转地址由路径拼出', B.DRILL_URL);
   ok(PK.Profile.TOPIC_FOR !== undefined, 'PK.Profile.TOPIC_FOR 存在（漏洞→题目映射）');
+
+  if (exists) {
+    ok(B.DRILL_KEY === DRILL.lsKey, '存档键与题库 LS_KEY 相同',
+      B.DRILL_KEY + ' vs ' + DRILL.lsKey);
+    ok(B.UNLOCK_ATT === DRILL.unlockAtt, '解锁所需题数一致',
+      B.UNLOCK_ATT + ' vs ' + DRILL.unlockAtt);
+    ok(B.UNLOCK_ACC === DRILL.unlockAcc, '解锁所需正确率一致',
+      B.UNLOCK_ACC + ' vs ' + DRILL.unlockAcc);
+  }
 }
 
 group('A4. 今日键的日期格式必须与题库相同');
@@ -631,7 +723,7 @@ group('B11. openDrill 的降级');
   let called = [];
   globalThis.open = (url, tgt) => { called.push(url + '|' + tgt); return { closed: false }; };
   ok(B.openDrill() === true, '能发起打开时返回 true');
-  ok(called[0] && called[0].indexOf('D:/todo/NLHE/index.html') >= 0,
+  ok(called[0] && called[0].indexOf(EXPECTED_DRILL_PATH) >= 0,
     '打开的正是题库页面', called[0]);
   ok(called[0].indexOf('file:///') === 0, '用的是 file:// 地址', called[0]);
 
