@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<!-- 应用图标（紧凑版）：供 ICO 里 <=48px 的条目使用。
+     与常规版的差别只有三点，都是为了"缩到 24px 还认得出"：
+       1) 黑桃放大到 72%（常规版 67%）—— 缩小时最容易丢的是主标记的面积；
+       2) 去掉全部投影 —— 投影在 16px 会退化成灰边，让白桃显得脏；
+       3) 红心略放大且描边同比例保留 —— 否则 16px 下红点会消失。
+     底与圆角半径与常规版**完全一致**：两个尺寸版本放在一起时不能像两个图标。 -->
+<html><head><meta charset="utf-8"><style>
+  html,body{margin:0;padding:0;background:transparent}
+  .icon{
+    position:relative;width:1024px;height:1024px;border-radius:230px;overflow:hidden;
+    background:
+      radial-gradient(62% 46% at 26% 10%, rgba(255,255,255,.30), rgba(255,255,255,0) 66%),
+      linear-gradient(152deg,#31B87D 0%,#189A63 22%,#0A5F3E 58%,#04301F 100%);
+  }
+  .icon::after{
+    content:"";position:absolute;inset:0;border-radius:230px;
+    box-shadow:
+      inset 0 0 0 13px rgba(255,255,255,.15),
+      inset 0 16px 40px rgba(255,255,255,.14),
+      inset 0 -52px 84px rgba(0,0,0,.36);
+  }
+  .spade{position:absolute;left:5%;top:16.5%;width:72%;height:72%}
+  .heart{position:absolute;right:8%;top:8%;width:33%;height:33%}
+</style></head><body>
+<div class="icon">
+  <svg class="spade" viewBox="4 2 16 21" xmlns="http://www.w3.org/2000/svg">
+    <path fill="#FFFFFF" d="M12 2C12 2 4 8.5 4 14c0 3.3 2.2 5.5 5 5.5 1.6 0 2.6-.9 3-2.1L11 23h2l-1-5.6c.4 1.2 1.4 2.1 3 2.1 2.8 0 5-2.2 5-5.5C20 8.5 12 2 12 2z"/>
+  </svg>
+  <svg class="heart" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path fill="#E4364B" stroke="#062E1E" stroke-width="2.1" stroke-linejoin="round"
+          d="M12 21s-8.4-5.4-8.4-11.4A4.9 4.9 0 0 1 12 6.4a4.9 4.9 0 0 1 8.4 3.2C20.4 15.6 12 21 12 21z"/>
+  </svg>
+</div>
+</body></html>

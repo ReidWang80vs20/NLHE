@@ -1,0 +1,53 @@
+{
+  "name": "nlhe-trainer",
+  "version": "1.0.0",
+  "description": "德州扑克练习室 · NLHE Trainer — 单机无限注德州扑克实战练习与复盘（Electron 桌面版）",
+  "main": "electron/main.js",
+  "author": "NLHE Trainer",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "dist": "electron-builder --win portable",
+    "dist:dir": "electron-builder --win dir"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.nlhe.trainer",
+    "productName": "NLHE Trainer",
+    "copyright": "MIT Licensed",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "poker-trainer.html",
+      "electron/**/*",
+      "assets/icon.ico",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "NLHE-Trainer-${version}-portable.${ext}",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "NLHE-Trainer-${version}-portable.${ext}"
+    },
+    "compression": "maximum",
+    "asar": true,
+    "asarUnpack": []
+  }
+}

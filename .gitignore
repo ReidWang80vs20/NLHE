@@ -1,0 +1,31 @@
+# ---- Node / Electron 构建产物 / build artifacts ----
+node_modules/
+dist/
+
+# ---- 运行时产生的临时文件 / runtime temp files ----
+*.log
+npm-debug.log*
+
+# ---- 测试截图与探针产物 / test screenshots & probe output ----
+test/shots/
+*.tmp
+
+# ---- 桌面入口管线的本地备份与探针（含本机快捷方式副本，不应入库）
+#      local backups & probes of the desktop-entry pipeline (machine-specific) ----
+_lnk_backup/
+_shortcut_probe/
+
+# ---- 工作区内部数据（基线快照、记忆、技能）/ workspace-internal data ----
+.workbuddy/
+
+# ---- 编辑器与系统 / editor & OS ----
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- 本地存档与设置（含个人战绩，不应入库）
+#      local saves & settings (personal stats — keep them out of the repo) ----
+*.local.json
+nlhe-save.json

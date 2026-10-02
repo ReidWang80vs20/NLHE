@@ -1,0 +1,20 @@
+# Git 行尾策略 / Line-ending policy
+# 仓库内一律以 LF 存储，检出到工作区时由 Git 自行决定（Windows 上通常仍是 CRLF）。
+# Everything is stored with LF in the repository; Git decides what the working
+# tree gets (on Windows that is usually still CRLF).
+* text=auto
+
+# 以下类型按文本处理，便于 diff 与合并
+# The following are treated as text so that diffs and merges stay readable.
+*.js    text
+*.mjs   text
+*.css   text
+*.html  text
+*.json  text
+*.md    text
+
+# 二进制资源不做任何转换 / Binary assets must never be converted.
+*.ico   binary
+*.png   binary
+*.exe   binary
+*.lnk   binary
